@@ -1,0 +1,23 @@
+{
+  "name": "browser-game",
+  "version": "1.0.0",
+  "description": "A browser-based game built with TypeScript",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "webpack serve --mode development",
+    "build": "webpack --mode production",
+    "test": "jest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2"
+  }
+} 
