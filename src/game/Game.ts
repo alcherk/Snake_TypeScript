@@ -45,7 +45,7 @@ export class Game {
 
         // Initialize enemy snake in a different area
         const enemyPosition = this.getValidEnemyPosition();
-        this.enemySnake = new EnemySnake(enemyPosition);
+        this.enemySnake = new EnemySnake(enemyPosition, this.boardWidth, this.boardHeight);
 
         // Set up keyboard controls
         this.setupInputHandling();
@@ -107,16 +107,22 @@ export class Game {
         // Move snake first
         this.snake.move();
 
-        // Move enemy snake
+        // Move enemy snake with correct board dimensions
         this.enemySnake.move(this.food.getPositions(), this.snake.getBody(), this.boardWidth, this.boardHeight);
 
         // Get the new head position after movement
         const head = this.snake.getHead();
+        const enemyHead = this.enemySnake.getHead();
         const foodPositions = this.food.getPositions();
 
-        // Check for food collision
+        // Check for food collision with player snake
         const foodEaten = foodPositions.some(foodPos => 
             head.x === foodPos.x && head.y === foodPos.y
+        );
+
+        // Check for food collision with enemy snake
+        const foodEatenByEnemy = foodPositions.some(foodPos => 
+            enemyHead.x === foodPos.x && enemyHead.y === foodPos.y
         );
 
         if (foodEaten) {
@@ -126,6 +132,11 @@ export class Game {
             this.score += 10;
             // Increase speed slightly
             this.gameSpeed = Math.max(50, this.gameSpeed - 2);
+        }
+
+        if (foodEatenByEnemy) {
+            // Enemy snake ate food
+            this.food.respawn([...this.snake.getBody(), ...this.enemySnake.getBody()]);
         }
 
         // Get the final head position after any growth
@@ -206,7 +217,7 @@ export class Game {
         }
 
         // Create new enemy snake with initial length
-        this.enemySnake = new EnemySnake(newPosition);
+        this.enemySnake = new EnemySnake(newPosition, this.boardWidth, this.boardHeight);
     }
 
     private checkWallCollision(position: Position): boolean {
@@ -284,7 +295,7 @@ export class Game {
 
         // Initialize enemy snake in a different position
         const enemyPosition = this.getValidEnemyPosition();
-        this.enemySnake = new EnemySnake(enemyPosition);
+        this.enemySnake = new EnemySnake(enemyPosition, this.boardWidth, this.boardHeight);
         this.food = new Food(this.boardWidth);
         this.score = 0;
         this.gameSpeed = 100;

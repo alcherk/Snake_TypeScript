@@ -7,8 +7,12 @@ export class EnemySnake {
     private color: string = '#ff0000'; // Red color for enemy snake
     private isDead: boolean = false;
     private playerSnakeBody: Position[] = []; // Initialize with empty array
+    private boardWidth: number;
+    private boardHeight: number;
 
-    constructor(startPosition: Position) {
+    constructor(startPosition: Position, boardWidth: number, boardHeight: number) {
+        this.boardWidth = boardWidth;
+        this.boardHeight = boardHeight;
         // Randomly choose a direction
         const directions = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT];
         const randomIndex = Math.floor(Math.random() * directions.length);
@@ -122,133 +126,54 @@ export class EnemySnake {
     }
 
     private updateDirectionTowardsFood(head: Position, food: Position): void {
-        const possibleDirections: Direction[] = [];
-        
         // Calculate distances to food
         const horizontalDistance = Math.abs(food.x - head.x);
         const verticalDistance = Math.abs(food.y - head.y);
 
-        // Add all possible directions
-        possibleDirections.push(Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT);
-
-        // Filter out directions that would cause immediate collision
-        const safeDirections = possibleDirections.filter(dir => {
-            const nextPos = this.getNextPosition(head, dir);
-            // Check for wall collision
-            if (nextPos.x < 0 || nextPos.x >= 100 || nextPos.y < 0 || nextPos.y >= 100) {
-                return false;
-            }
-            // Check for self collision
-            if (this.checkCollision(nextPos, this.body.slice(1))) {
-                return false;
-            }
-            // Check for player snake collision
-            if (this.checkCollision(nextPos, this.playerSnakeBody)) {
-                return false;
-            }
-            return true;
-        });
-
-        // If we have safe directions, choose one
-        if (safeDirections.length > 0) {
-            // Prioritize the direction that gets us closer to food
-            if (horizontalDistance > verticalDistance) {
-                // Prioritize horizontal movement
-                const horizontalDir = food.x < head.x ? Direction.LEFT : Direction.RIGHT;
-                if (safeDirections.includes(horizontalDir)) {
-                    this.nextDirection = horizontalDir;
-                    return;
-                }
-            } else {
-                // Prioritize vertical movement
-                const verticalDir = food.y < head.y ? Direction.UP : Direction.DOWN;
-                if (safeDirections.includes(verticalDir)) {
-                    this.nextDirection = verticalDir;
-                    return;
-                }
-            }
-
-            // If we couldn't choose a prioritized direction, pick a random safe one
-            const randomIndex = Math.floor(Math.random() * safeDirections.length);
-            this.nextDirection = safeDirections[randomIndex];
+        // Determine preferred direction based on which distance is greater
+        let preferredDirection: Direction;
+        if (horizontalDistance > verticalDistance) {
+            preferredDirection = food.x < head.x ? Direction.LEFT : Direction.RIGHT;
         } else {
-            // If no safe directions, try to find a path that leads to safety
-            const escapeDirections = possibleDirections.filter(dir => {
-                const nextPos = this.getNextPosition(head, dir);
-                // Check for wall collision
-                if (nextPos.x < 0 || nextPos.x >= 100 || nextPos.y < 0 || nextPos.y >= 100) {
-                    return false;
-                }
-                // Check for self collision
-                if (this.checkCollision(nextPos, this.body.slice(1))) {
-                    return false;
-                }
-                // Check for player snake collision
-                if (this.checkCollision(nextPos, this.playerSnakeBody)) {
-                    return false;
-                }
-                return true;
-            });
-
-            if (escapeDirections.length > 0) {
-                // Choose the direction that leads to the most open space
-                const bestDirection = this.findDirectionWithMostSpace(head, escapeDirections);
-                this.nextDirection = bestDirection;
-            }
-        }
-    }
-
-    private findDirectionWithMostSpace(head: Position, directions: Direction[]): Direction {
-        let bestDirection = directions[0];
-        let maxSpace = 0;
-
-        for (const dir of directions) {
-            const space = this.calculateSpaceInDirection(head, dir);
-            if (space > maxSpace) {
-                maxSpace = space;
-                bestDirection = dir;
-            }
+            preferredDirection = food.y < head.y ? Direction.UP : Direction.DOWN;
         }
 
-        return bestDirection;
-    }
-
-    private calculateSpaceInDirection(head: Position, direction: Direction): number {
-        let space = 0;
-        let currentPos = { ...head };
-
-        while (true) {
-            // Move in the given direction
-            switch (direction) {
-                case Direction.UP:
-                    currentPos.y--;
-                    break;
-                case Direction.DOWN:
-                    currentPos.y++;
-                    break;
-                case Direction.LEFT:
-                    currentPos.x--;
-                    break;
-                case Direction.RIGHT:
-                    currentPos.x++;
-                    break;
-            }
-
-            // Check for collisions
-            if (currentPos.x < 0 || currentPos.x >= 100 || currentPos.y < 0 || currentPos.y >= 100) {
-                break;
-            }
-            if (this.checkCollision(currentPos, this.body.slice(1))) {
-                break;
-            }
-            if (this.checkCollision(currentPos, this.playerSnakeBody)) {
-                break;
-            }
-
-            space++;
+        // Check if preferred direction is safe
+        const nextPos = this.getNextPosition(head, preferredDirection);
+        if (!this.checkCollision(nextPos, this.body.slice(1)) && 
+            !this.checkCollision(nextPos, this.playerSnakeBody) &&
+            nextPos.x >= 0 && nextPos.x < this.boardWidth &&
+            nextPos.y >= 0 && nextPos.y < this.boardHeight) {
+            this.nextDirection = preferredDirection;
+            return;
         }
 
-        return space;
+        // If preferred direction is not safe, try the other direction
+        const alternativeDirection = horizontalDistance > verticalDistance 
+            ? (food.y < head.y ? Direction.UP : Direction.DOWN)
+            : (food.x < head.x ? Direction.LEFT : Direction.RIGHT);
+
+        const altNextPos = this.getNextPosition(head, alternativeDirection);
+        if (!this.checkCollision(altNextPos, this.body.slice(1)) && 
+            !this.checkCollision(altNextPos, this.playerSnakeBody) &&
+            altNextPos.x >= 0 && altNextPos.x < this.boardWidth &&
+            altNextPos.y >= 0 && altNextPos.y < this.boardHeight) {
+            this.nextDirection = alternativeDirection;
+            return;
+        }
+
+        // If both preferred directions are not safe, try any safe direction
+        const possibleDirections = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT];
+        for (const dir of possibleDirections) {
+            const pos = this.getNextPosition(head, dir);
+            if (!this.checkCollision(pos, this.body.slice(1)) && 
+                !this.checkCollision(pos, this.playerSnakeBody) &&
+                pos.x >= 0 && pos.x < this.boardWidth &&
+                pos.y >= 0 && pos.y < this.boardHeight) {
+                this.nextDirection = dir;
+                return;
+            }
+        }
     }
 
     private getNextPosition(pos: Position, dir: Direction): Position {
@@ -268,6 +193,10 @@ export class EnemySnake {
                 break;
         }
         return next;
+    }
+
+    public getHead(): Position {
+        return this.body[0];
     }
 
     public getBody(): Position[] {

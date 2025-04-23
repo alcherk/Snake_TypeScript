@@ -1,17 +1,13 @@
 import { Position } from './types';
 
 export class Food {
-    private positions: Position[];
-    private gridSize: number;
-    private minFood: number = 2;
-    private maxFood: number = 7;
-    private spawnDelays: { [key: string]: number } = {};
-    private minDelay: number = 2000; // 2 seconds minimum delay
-    private maxDelay: number = 5000; // 5 seconds maximum delay
+    private positions: Position[] = [];
+    private boardSize: number;
+    private foodCount: number = 3; // Number of food items to maintain
 
-    constructor(gridSize: number) {
-        this.gridSize = gridSize;
-        this.positions = [];
+    constructor(boardSize: number) {
+        this.boardSize = boardSize;
+        // Initialize with initial food
         this.spawnInitialFood();
     }
 
@@ -19,66 +15,68 @@ export class Food {
         return this.positions;
     }
 
-    public respawn(snakeBody: Position[]): void {
-        // Remove eaten food
-        this.positions = this.positions.filter(pos => {
-            const wasEaten = snakeBody.some(segment => segment.x === pos.x && segment.y === pos.y);
-            if (wasEaten) {
-                // Schedule new food spawn with random delay
-                this.scheduleNewFoodSpawn(snakeBody);
-            }
-            return !wasEaten;
-        });
-    }
-
     private spawnInitialFood(): void {
-        // Spawn random number of food items between min and max
-        const numFood = Math.floor(Math.random() * (this.maxFood - this.minFood + 1)) + this.minFood;
-        for (let i = 0; i < numFood; i++) {
+        // Spawn initial food items
+        for (let i = 0; i < this.foodCount; i++) {
             this.addNewFood([]);
         }
     }
 
-    private scheduleNewFoodSpawn(snakeBody: Position[]): void {
-        const delay = Math.random() * (this.maxDelay - this.minDelay) + this.minDelay;
-        const key = `${Date.now()}-${Math.random()}`;
-        this.spawnDelays[key] = Date.now() + delay;
+    public respawn(snakeBody: Position[]): void {
+        // Find eaten food positions
+        const eatenPositions = this.positions.filter(pos => 
+            snakeBody.some(segment => segment.x === pos.x && segment.y === pos.y)
+        );
 
-        // Check and spawn food after delay
-        setTimeout(() => {
-            if (this.positions.length < this.maxFood) {
-                this.addNewFood(snakeBody);
-            }
-            delete this.spawnDelays[key];
-        }, delay);
+        // Remove eaten food
+        this.positions = this.positions.filter(pos => 
+            !snakeBody.some(segment => segment.x === pos.x && segment.y === pos.y)
+        );
+
+        // Spawn new food for each eaten position
+        eatenPositions.forEach(() => {
+            this.addNewFood(snakeBody);
+        });
+
+        // Ensure we have exactly foodCount pieces of food
+        while (this.positions.length < this.foodCount) {
+            this.addNewFood(snakeBody);
+        }
     }
 
     private addNewFood(snakeBody: Position[]): void {
         let newPosition: Position;
-        do {
-            newPosition = this.generateRandomPosition();
-        } while (this.isPositionOccupied(newPosition, snakeBody));
-        this.positions.push(newPosition);
-    }
+        let attempts = 0;
+        const maxAttempts = 100;
 
-    private generateRandomPosition(): Position {
-        return {
-            x: Math.floor(Math.random() * this.gridSize),
-            y: Math.floor(Math.random() * this.gridSize)
-        };
+        do {
+            newPosition = {
+                x: Math.floor(Math.random() * this.boardSize),
+                y: Math.floor(Math.random() * this.boardSize)
+            };
+            attempts++;
+
+            // Check if position is valid (not on snake or existing food)
+            const isValid = !this.isPositionOccupied(newPosition, snakeBody);
+
+            if (isValid) {
+                this.positions.push(newPosition);
+                break;
+            }
+        } while (attempts < maxAttempts);
     }
 
     private isPositionOccupied(position: Position, snakeBody: Position[]): boolean {
-        // Check if position is occupied by snake
-        const isOccupiedBySnake = snakeBody.some(segment => 
+        // Check if position is on snake
+        const isOnSnake = snakeBody.some(segment => 
             segment.x === position.x && segment.y === position.y
         );
 
-        // Check if position is occupied by other food
-        const isOccupiedByFood = this.positions.some(food => 
-            food.x === position.x && food.y === position.y
+        // Check if position is on existing food
+        const isOnFood = this.positions.some(foodPos => 
+            foodPos.x === position.x && foodPos.y === position.y
         );
 
-        return isOccupiedBySnake || isOccupiedByFood;
+        return isOnSnake || isOnFood;
     }
 } 
